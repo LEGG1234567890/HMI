@@ -1,0 +1,69 @@
+# === Entornos virtuales ===
+venv/
+env/
+.venv/
+
+# === Archivos compilados de Python ===
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# === Archivos temporales de Jupyter ===
+.ipynb_checkpoints/
+*.nbconvert.ipynb
+
+# === Modelos entrenados ===
+*.h5
+*.hdf5
+*.ckpt
+*.pth
+*.pt
+*.joblib
+*.pickle
+*.pkl
+
+# === Datasets grandes ===
+*.tsv
+*.parquet
+*.feather
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# === Multimedia pesada ===
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.wav
+*.flac
+*.mp3
+*.bmp
+*.tiff
+
+# === Librerías externas (no versionar dependencias locales) ===
+*.dll
+*.lib
+*.so
+*.dylib
+*.pyd
+
+# === Archivos de logs y cache ===
+*.log
+*.out
+*.err
+*.tmp
+*.bak
+*.swp
+
+# === IDEs y configuraciones locales ===
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# === Archivos de control de versiones que no interesan ===
+.DS_Store
+Thumbs.db

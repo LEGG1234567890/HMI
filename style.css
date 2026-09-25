@@ -1,0 +1,15 @@
+@container (min-width: 400px) {
+    .card { flex-direction: row; }
+}
+button {
+    padding: 0.5rem 1rem;
+    border: none;
+    &.primary {
+        background: blue;
+        color: white;
+    }
+    &.secondary {
+        background: gray;
+        color: black;
+    }
+}
