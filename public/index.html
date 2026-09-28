@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>HMI</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>HMI</h1>
+        <select id="ports"></select>
+        <button id="btnConn">Conectar</button>
+        <span id="estado" class="off">Desconectado</span>
+    </header>
+
+    <main>
+    <section class="card">
+        <h2>Salida PWM (GPIO 4)</h2>
+        <input type="range" id="pwm" min="0" max="100" value="0">
+        <p><b id="pwmVal">0</b> %</p>
+    </section>
+
+    <section class="card">
+        <h2>Entrada analógica (GPIO 34)</h2>
+        <p>Valor: <b id="raw">--</b> / 4095</p>
+        <p>Voltaje: <b id="volt">--</b> V</p>
+        <label>Muestreo:
+        <select id="rate">
+            <option value="20">20 ms</option>
+            <option value="50" selected>50 ms</option>
+            <option value="100">100 ms</option>
+            <option value="500">500 ms</option>
+        </select>
+        </label>
+    </section>
+
+    <section class="card wide">
+        <h2>Gráfica</h2>
+        <canvas id="grafica" width="900" height="260"></canvas>
+    </section>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>

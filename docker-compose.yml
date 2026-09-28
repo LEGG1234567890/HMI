@@ -1,0 +1,19 @@
+services:
+  hmi:
+    build: .
+    ports:
+      - "8080:80"
+    volumes:
+      - ./public:/var/www/html
+    restart: unless-stopped
+
+  bridge:
+    build: ./bridge
+    ports:
+      - "8081:8081"
+    volumes:
+      - /dev:/dev                       # para detectar placas conectadas en caliente
+    device_cgroup_rules:
+      - "c 188:* rmw"                   # ttyUSB (CH340, CP2102, FTDI)
+      - "c 166:* rmw"                   # ttyACM (Arduino Uno/Mega/Leonardo)
+    restart: unless-stopped

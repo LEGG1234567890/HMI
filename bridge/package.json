@@ -1,0 +1,5 @@
+{
+    "name": "hmi-bridge",
+    "version": "1.0.0",
+    "dependencies": { "serialport": "^13.0.0", "ws": "^8.18.0" }
+}
