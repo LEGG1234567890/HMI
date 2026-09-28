@@ -5,7 +5,6 @@ const ADC_MAX = 4095;
 const VREF = 3.3;         // aproximado; el ADC de la ESP32 no es perfectamente lineal
 const datos = [];
 let conectado = false;
-
 const enviar = (obj) => ws.readyState === 1 && ws.send(JSON.stringify(obj));
 
 ws.onmessage = (e) => {

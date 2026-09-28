@@ -2,13 +2,14 @@ const { SerialPort } = require('serialport');
 const { WebSocketServer } = require('ws');
 
 const wss = new WebSocketServer({ port: 8081 });
-const BAUD = 9600;
 let port = null;
+let currentPath = null;
+let currentBaud = 9600;
 let pollTimer = null;
 let waitTimer = null;
 let waiting = false;
 let rx = [];
-let pollMs = 50;
+let pollMs = 1000;
 let lastPorts = '';
 
 const send = (ws, obj) => ws.readyState === 1 && ws.send(JSON.stringify(obj));
@@ -21,23 +22,20 @@ async function listPorts() {
         .map((p) => ({ path: p.path, manufacturer: p.manufacturer || '' }));
 }
 
-// Detección automática de placas conectadas/desconectadas
 setInterval(async () => {
     const ports = await listPorts();
     const key = JSON.stringify(ports);
-    if (key !== lastPorts) {
-        lastPorts = key;
-        broadcast({ type: 'ports', ports });
-    }
+    if (key !== lastPorts) { lastPorts = key; broadcast({ type: 'ports', ports }); }
 }, 2000);
 
 function poll() {
     if (!port || !port.isOpen || waiting) return;
     waiting = true;
     rx = [];
+    const tSend = Date.now();
     port.write(Buffer.from([255]));
-    // Si la respuesta no llega completa en 200 ms, descarta y reintenta
-    waitTimer = setTimeout(() => { waiting = false; rx = []; }, 200);
+    waitTimer = setTimeout(() => { waiting = false; rx = []; }, Math.max(300, pollMs));
+    port._tSend = tSend;
 }
 
 function startPolling() {
@@ -45,19 +43,19 @@ function startPolling() {
     pollTimer = setInterval(poll, pollMs);
 }
 
-function connect(path) {
+function connect(path, baud) {
     if (port && port.isOpen) port.close();
     clearInterval(pollTimer);
+    currentPath = path;
+    currentBaud = baud || 9600;
 
-    // hupcl:false evita que abrir el puerto reinicie la ESP32 (no siempre funciona)
-    port = new SerialPort({ path, baudRate: BAUD, hupcl: false }, (err) => {
+    port = new SerialPort({ path, baudRate: currentBaud, hupcl: false }, (err) => {
         if (err) broadcast({ type: 'error', msg: err.message });
     });
 
     port.on('open', () => {
-        broadcast({ type: 'status', connected: true, path });
-        // Espera 2 s: si la placa se reinició, manda basura de arranque
-        setTimeout(startPolling, 2000);
+        broadcast({ type: 'status', connected: true, path, baud: currentBaud });
+        setTimeout(startPolling, 2000); // espera a que la ESP32 termine de resetear
     });
 
     port.on('close', () => {
@@ -67,40 +65,39 @@ function connect(path) {
     });
 
     port.on('data', (buf) => {
-        if (!waiting) return;          // ignora bytes que no pedimos
+        if (!waiting) return;
         rx.push(...buf);
         if (rx.length >= 2) {
         clearTimeout(waitTimer);
         const raw = ((rx[0] << 8) | rx[1]) & 0x0FFF;
+        const rtt = Date.now() - port._tSend;   // latencia ida y vuelta, útil para el reporte
         waiting = false;
         rx = [];
-        broadcast({ type: 'adc', raw });
+        broadcast({ type: 'adc', raw, rtt, t: Date.now() });
         }
     });
 }
 
 wss.on('connection', async (ws) => {
     send(ws, { type: 'ports', ports: await listPorts() });
-    send(ws, { type: 'status', connected: !!(port && port.isOpen), path: port && port.path });
+    send(ws, { type: 'status', connected: !!(port && port.isOpen), path: currentPath, baud: currentBaud });
 
     ws.on('message', (raw) => {
-        let m;
-        try { m = JSON.parse(raw); } catch { return; }
+        let m; try { m = JSON.parse(raw); } catch { return; }
 
-        if (m.type === 'connect' && m.path) connect(m.path);
+        if (m.type === 'connect' && m.path) connect(m.path, m.baud);
 
         if (m.type === 'disconnect' && port && port.isOpen) {
-        port.write(Buffer.from([0]), () => port.close());   // PWM a 0 antes de cerrar
+        port.write(Buffer.from([0]), () => port.close());
         }
 
         if (m.type === 'pwm' && port && port.isOpen) {
-        // Limitar a 0-100: valores mayores romperían el mapeo, y 255 es el comando de lectura
         const v = Math.max(0, Math.min(100, Math.round(Number(m.value) || 0)));
         port.write(Buffer.from([v]));
         }
 
         if (m.type === 'rate') {
-        pollMs = Math.max(10, Math.min(1000, Number(m.ms) || 50));
+        pollMs = Math.max(5, Number(m.ms) || 1000);   // Ts en ms
         if (port && port.isOpen) startPolling();
         }
     });

@@ -1,46 +1,87 @@
 <!DOCTYPE html>
 <html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>HMI</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-    <header>
-        <h1>HMI</h1>
-        <select id="ports"></select>
-        <button id="btnConn">Conectar</button>
-        <span id="estado" class="off">Desconectado</span>
-    </header>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>HMI</title>
+        <link rel="stylesheet" href="style.css">
+    </head>
+    <body>
+        <header>
+            <h1>Human-Machine Interface</h1>
+            <label>Puerto
+                <select id="ports"></select>
+            </label>
+            <label>Baud
+                <select id="baud">
+                <option value="9600">9600</option>
+                <option value="115200">115200</option>
+                </select>
+            </label>
+            <button id="btnConn">Conectar</button>
+            <span id="estado" class="off">Desconectado</span>
+        </header>
 
-    <main>
-    <section class="card">
-        <h2>Salida PWM (GPIO 4)</h2>
-        <input type="range" id="pwm" min="0" max="100" value="0">
-        <p><b id="pwmVal">0</b> %</p>
-    </section>
+        <main>
+            <section class="card">
+                <h2>PV / Error</h2>
+                <p>PV: <b id="pv">0</b> °</p>
+                <p>Error: <b id="error">0</b> °</p>
+                <p class="small">ADC crudo: <span id="raw">--</span> / 4095</p>
+            </section>
 
-    <section class="card">
-        <h2>Entrada analógica (GPIO 34)</h2>
-        <p>Valor: <b id="raw">--</b> / 4095</p>
-        <p>Voltaje: <b id="volt">--</b> V</p>
-        <label>Muestreo:
-        <select id="rate">
-            <option value="20">20 ms</option>
-            <option value="50" selected>50 ms</option>
-            <option value="100">100 ms</option>
-            <option value="500">500 ms</option>
-        </select>
-        </label>
-    </section>
+            <section class="card">
+                <h2>Referencia y Ts</h2>
+                <label>Referencia (°)
+                <input type="number" id="referencia" value="0" step="1">
+                </label>
+                <label>Ts (ms)
+                <input type="number" id="ts" value="1000" step="10" min="5">
+                </label>
+                <button id="btnTs">Aplicar Ts</button>
+                <p class="small">Frecuencia real: <b id="fps">--</b> Hz &nbsp;|&nbsp; RTT: <b id="rtt">--</b> ms</p>
+            </section>
 
-    <section class="card wide">
-        <h2>Gráfica</h2>
-        <canvas id="grafica" width="900" height="260"></canvas>
-    </section>
-    </main>
+            <section class="card">
+                <h2>Manipulación (OP)</h2>
+                <input type="range" id="pwm" min="0" max="100" value="0">
+                <p><b id="pwmVal">0</b> %</p>
+            </section>
 
-    <script src="script.js"></script>
-</body>
+            <section class="card">
+                <h2>Modo / Control</h2>
+                <label><input type="checkbox" id="modo"> Modo Auto (deshabilitado en esta práctica)</label>
+                <button id="btnStop">STOP</button>
+            </section>
+
+            <section class="card">
+                <h2>PID (referencia futura)</h2>
+                <label>Kc <input type="number" id="kc" value="0" step="0.1"></label>
+                <label>Tau_i <input type="number" id="taui" value="0" step="0.1"></label>
+                <label>Tau_d <input type="number" id="taud" value="0" step="0.1"></label>
+            </section>
+
+            <section class="card">
+                <h2>Calibración PV (0°-340°)</h2>
+                <p class="small">Gira el potenciómetro a su tope físico mínimo y captura; luego al tope máximo.</p>
+                <button id="capMin">Capturar 0°</button> raw0: <span id="raw0">0</span>
+                <br>
+                <button id="capMax">Capturar 340°</button> rawMax: <span id="rawMax">4095</span>
+            </section>
+
+            <section class="card">
+                <h2>Archivar datos</h2>
+                <label><input type="checkbox" id="archivar"> Archivar</label>
+                <span class="small">Muestras: <b id="contador">0</b></span>
+                <button id="btnSave">Guardar Datos (SAVE)</button>
+            </section>
+
+            <section class="card wide">
+                <h2>Gráfica PV</h2>
+                <canvas id="grafica" width="900" height="260"></canvas>
+            </section>
+        </main>
+
+        <script src="script.js"></script>
+    </body>
 </html>
