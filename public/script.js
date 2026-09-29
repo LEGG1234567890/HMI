@@ -42,7 +42,6 @@ function wireModo(prefix) {
   const ref = $(`referencia-${prefix}`);
   const op = $(`op-${prefix}`);
   let auto = false;
-
   const aplicar = () => {
     ref.disabled = auto ? false : true;
     op.disabled = auto ? true : false;
@@ -50,22 +49,31 @@ function wireModo(prefix) {
     btn.classList.toggle('on', auto);
   };
   aplicar();
-
-  btn.onclick = () => { auto = !auto; aplicar(); };
-
-  // Devuelve función que el loop de datos llama en cada muestra
+  btn.onclick = () => {
+    auto = !auto;
+    aplicar();
+  };
   return {
     esAuto: () => auto,
-    trackReferencia: (pv) => { if (!auto) ref.value = pv.toFixed(2); },
+    trackReferencia: (pv) => {
+      if (!auto) {
+        ref.value = pv.toFixed(2);
+      }
+    },
+    setReferenciaManual: (sp) => {
+      if (!auto) {
+        ref.value = sp.toFixed(2);
+      }
+    },
   };
 }
 
 const modoM = wireModo('m');
 const modoS = wireModo('s');
 
-// =====================================================================
-// ============================ MONITOR (ESP32) =======================
-// =====================================================================
+// ============================================================
+// ============================ MONITOR =======================
+// ============================================================
 const ws = new WebSocket(`ws://${location.hostname}:8081`);
 let conectado = false;
 const histPVm = [], histSPm = [], histErrm = [], histOPm = [];
@@ -147,9 +155,9 @@ $('archivar-m').onclick = () => {
 };
 $('btnSave-m').onclick = () => descargarCsv(registroM, 'monitor');
 
-// =====================================================================
-// ========================= SIMULACIÓN (Python) ======================
-// =====================================================================
+// ===========================================================
+// ========================= SIMULACIÓN ======================
+// ===========================================================
 const SIM_URL = `http://${location.hostname}:8082`;
 const histPVs = [], histSPs = [], histErrs = [], histOPs = [];
 let registroS = [], archivandoS = false, tInicioS = 0;
@@ -179,30 +187,63 @@ async function aplicarParametrosSim() {
 }
 
 async function pasoSim() {
+
   const auto = modoS.esAuto();
-  // Automático: OP aún no se calcula (falta PID). Manual: OP la da el usuario.
-  const op = auto ? Number($('op-s').value) || 0 : Number($('op-s').value) || 0;
+
+  const kp = Number($('kp-s').value) || 0;
+  const op = Number($('op-s').value) || 0;
+  const inicial = Number($('inicial-s').value) || 0;
 
   try {
+
     const r = await fetch(`${SIM_URL}/step`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op }),
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ op }),
     });
     const d = await r.json();
-    const pv = d.pv;
-    modoS.trackReferencia(pv);
-    const sp = Number($('referencia-s').value) || 0;
+    const pv = d.pv+inicial;
+    let sp;
+    if (auto) {
+      // Automático:
+      // el usuario define la referencia
+      sp = Number($('referencia-s').value) || 0;
+    } else {
+      // Manual:
+      // SP = Kp * OP + valor inicial
+      sp = kp * op + inicial;
+      modoS.setReferenciaManual(sp);
+    }
     const err = sp - pv;
-
     $('pv-s').textContent = pv.toFixed(2);
     $('error-s').textContent = err.toFixed(2);
-
-    [histPVs, histSPs, histErrs, histOPs].forEach((h) => { if (h.length > MAX_PLOT) h.shift(); });
-    histPVs.push(pv); histSPs.push(sp); histErrs.push(err); histOPs.push(op);
-    dibujarSerie($('chartPV-s'), histSPs, histPVs, Math.max(10, Math.max(...histPVs, ...histSPs) * 1.2));
-    dibujarSerie($('chartErr-s'), histErrs, histOPs, 100);
-
+    [histPVs, histSPs, histErrs, histOPs].forEach((h) => {
+      if (h.length > MAX_PLOT) h.shift();
+    });
+    histPVs.push(pv);
+    histSPs.push(sp);
+    histErrs.push(err);
+    histOPs.push(op);
+    dibujarSerie(
+      $('chartPV-s'),
+      histSPs,
+      histPVs,
+      Math.max(10, Math.max(...histPVs, ...histSPs) * 1.2)
+    );
+    dibujarSerie(
+      $('chartErr-s'),
+      histErrs,
+      histOPs,
+      100
+    );
     if (archivandoS) {
-      registroS.push({ t: Date.now() - tInicioS, pv: pv.toFixed(2), sp, err: err.toFixed(2), op });
+      registroS.push({
+        t: Date.now() - tInicioS,
+        pv: pv.toFixed(2),
+        sp: sp.toFixed(2),
+        err: err.toFixed(2),
+        op: op
+      });
       $('contador-s').textContent = registroS.length;
     }
   } catch (err) {

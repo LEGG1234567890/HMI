@@ -35,7 +35,8 @@ def reset_state(k, tau, theta, Ts, inicial):
         'a1': float(a1), 'b1': float(b1), 'b2': float(b2),
         'N': N, 'm': float(m), 'modulo': float(modulo),
         'M': [0.0] * (N + 3),   # historial de manipulacion (con margen)
-        'Cn': float(inicial),
+        'Cn': 0.0,
+        'inicial': float(inicial),
         'n': 0,
     })
 
@@ -49,8 +50,7 @@ def reset():
         Ts=float(d.get('Ts', 1.0)),
         inicial=float(d.get('inicial', 0.0)),
     )
-    return jsonify(ok=True, a1=state['a1'], b1=state['b1'], b2=state['b2'],
-                    N=state['N'], m=state['m'], modulo=state['modulo'])
+    return jsonify(ok=True, a1=state['a1'], b1=state['b1'], b2=state['b2'], N=state['N'], m=state['m'], modulo=state['modulo'])
 
 @app.route('/step', methods=['POST'])
 def step():
@@ -73,11 +73,17 @@ def step():
     Cn = state['a1'] * state['Cn'] + state['b1'] * M1 + state['b2'] * M2
     state['Cn'] = float(Cn)
     state['n'] = n
+    pv = state['Cn'] + state['inicial']
 
     if len(M) > 5000:                    # evita crecer indefinidamente
         state['M'] = M[-(N + 10):]
 
-    return jsonify(pv=state['Cn'], n=n)
+    return jsonify(
+        pv=float(pv),
+        cn=float(state['Cn']),
+        inicial=float(state['inicial']),
+        n=n
+    )
 
 @app.route('/health', methods=['GET'])
 def health():
