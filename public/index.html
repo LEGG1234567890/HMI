@@ -12,6 +12,7 @@
   <h1>Human-Machine Interface</h1>
   <nav class="tabs">
     <button class="tab-btn active" data-tab="monitor">Monitor</button>
+    <button class="tab-btn" data-tab="simulacion">Simulación</button>
     <button class="tab-btn" data-tab="variables">Variables</button>
   </nav>
   <div class="conn">
@@ -25,123 +26,130 @@
   </div>
 </header>
 
-<!-- ===================== PESTAÑA MONITOR ===================== -->
+<!-- ===================== PESTAÑA MONITOR (hardware real) ===================== -->
 <section id="tab-monitor" class="tab-page active">
   <div class="charts">
     <div class="chart-box">
       <h3>Variable de Proceso (PV) y Referencia (SP)</h3>
-      <canvas id="chartPV" width="600" height="220"></canvas>
+      <canvas id="chartPV-m" width="600" height="220"></canvas>
     </div>
     <div class="chart-box">
       <h3>Error y Manipulación</h3>
-      <canvas id="chartErr" width="600" height="220"></canvas>
+      <canvas id="chartErr-m" width="600" height="220"></canvas>
     </div>
   </div>
 
   <div class="panel">
-    <div class="field"><label>Referencia</label>
-      <input type="number" id="referencia" value="0" step="1">
+    <div class="field"><label>Referencia (SP)</label>
+      <input type="number" id="referencia-m" value="0" step="1">
     </div>
-    <div class="field"><label>Proceso</label><output id="pv">0</output></div>
-    <div class="field"><label>Error</label><output id="error">0</output></div>
-    <div class="field"><label>Manipulación</label>
-      <input type="number" id="op" value="0" min="0" max="100" step="1">
+    <div class="field"><label>Proceso (PV)</label><output id="pv-m">0</output></div>
+    <div class="field"><label>Error</label><output id="error-m">0</output></div>
+    <div class="field"><label>Manipulación (OP)</label>
+      <input type="number" id="op-m" value="0" min="0" max="100" step="1">
     </div>
     <div class="field"><label>T<sub>s</sub> (s)</label>
-      <input type="number" id="ts" value="1" min="0.1" step="0.1">
+      <input type="number" id="ts-m" value="1" min="0.1" step="0.1">
     </div>
-
     <div class="field"><label>K<sub>c</sub></label>
-      <input type="number" id="kc" value="0" step="0.1">
+      <input type="number" id="kc-m" value="0" step="0.1">
     </div>
     <div class="field"><label>&#964<sub>i</sub></label>
-      <input type="number" id="taui" value="0" step="0.1">
+      <input type="number" id="taui-m" value="0" step="0.1">
     </div>
     <div class="field"><label>&#964<sub>d</sub></label>
-      <input type="number" id="taud" value="0" step="0.1">
+      <input type="number" id="taud-m" value="0" step="0.1">
     </div>
 
     <div class="field switch">
-      <label>Modo de Control</label>
-      <button id="modoCtrl" class="toggle">Manual</button>
+      <label>Modo Ctrl</label>
+      <button id="modoCtrl-m" class="toggle">Manual</button>
+      <small class="hint" id="hint-m">Manual: Ref. sigue a PV (bumpless)</small>
     </div>
 
     <div class="field switch">
       <label>Archivar datos</label>
-      <button id="archivar" class="toggle">OFF</button>
+      <button id="archivar-m" class="toggle">OFF</button>
     </div>
-    <div class="field">
-      <button id="btnSave">Guardar Datos</button>
-    </div>
-    <div class="field"><label>Elementos</label><output id="contador">0</output></div>
-
-    <div class="field">
-      <button id="btnStop" class="btn-stop">STOP</button>
-    </div>
+    <div class="field"><button id="btnSave-m">Guardar Datos (SAVE)</button></div>
+    <div class="field"><label>Elementos</label><output id="contador-m">0</output></div>
+    <div class="field"><button id="btnStop-m" class="btn-stop">STOP</button></div>
   </div>
 </section>
 
-<!-- ===================== PESTAÑA SIMULACIÓN ===================== -->
+<!-- ===================== PESTAÑA SIMULACIÓN (planta FOPDT, Python) ===================== -->
 <section id="tab-simulacion" class="tab-page">
   <div class="charts">
     <div class="chart-box">
       <h3>Variable de Proceso (PV) y Referencia (SP)</h3>
-      <canvas id="chartPV" width="600" height="220"></canvas>
+      <canvas id="chartPV-s" width="600" height="220"></canvas>
     </div>
     <div class="chart-box">
       <h3>Error y Manipulación</h3>
-      <canvas id="chartErr" width="600" height="220"></canvas>
+      <canvas id="chartErr-s" width="600" height="220"></canvas>
     </div>
   </div>
 
   <div class="panel">
-    <div class="field"><label>Referencia</label>
-      <input type="number" id="referencia" value="0" step="1">
+    <div class="field"><label>Referencia (SP)</label>
+      <input type="number" id="referencia-s" value="0" step="1">
     </div>
-    <div class="field"><label>Proceso</label><output id="pv">0</output></div>
-    <div class="field"><label>Error</label><output id="error">0</output></div>
-    <div class="field"><label>Manipulación</label>
-      <input type="number" id="op" value="0" min="0" max="100" step="1">
+    <div class="field"><label>Proceso (PV)</label><output id="pv-s">0</output></div>
+    <div class="field"><label>Error</label><output id="error-s">0</output></div>
+    <div class="field"><label>Manipulación (OP)</label>
+      <input type="number" id="op-s" value="0" min="0" max="100" step="1">
     </div>
     <div class="field"><label>T<sub>s</sub> (s)</label>
-      <input type="number" id="ts" value="1" min="0.1" step="0.1">
+      <input type="number" id="ts-s" value="1" min="0.1" step="0.1">
     </div>
-
     <div class="field"><label>K<sub>c</sub></label>
-      <input type="number" id="kc" value="0" step="0.1">
+      <input type="number" id="kc-s" value="0" step="0.1">
     </div>
     <div class="field"><label>&#964<sub>i</sub></label>
-      <input type="number" id="taui" value="0" step="0.1">
+      <input type="number" id="taui-s" value="0" step="0.1">
     </div>
     <div class="field"><label>&#964<sub>d</sub></label>
-      <input type="number" id="taud" value="0" step="0.1">
+      <input type="number" id="taud-s" value="0" step="0.1">
     </div>
-
-    <div class="field switch">
-      <label>Modo de Control</label>
-      <button id="modoCtrl" class="toggle">Manual</button>
+    
+    <div class="field wide">
+      <label>Parámetros de la planta (FOPDT)</label>
     </div>
+    <div class="field"><label>K<sub>p</sub></label>
+      <input type="number" id="kp-s" value="1" step="0.1">
+    </div>
+    <div class="field"><label>&#964</label>
+      <input type="number" id="tau-s" value="1" step="0.1">
+    </div>
+    <div class="field"><label>&#952</label>
+      <input type="number" id="theta-s" value="0" step="0.1">
+    </div>
+    <div class="field"><label>Valor inicial</label>
+      <input type="number" id="inicial-s" value="0" step="0.1">
+    </div>
+    
+    <div class="field"><label>a1</label><output id="coefA1-s">--</output></div>
+    <div class="field"><label>b1</label><output id="coefB1-s">--</output></div>
+    <div class="field"><label>b2</label><output id="coefB2-s">--</output></div>
+    <div class="field"><label>N</label><output id="coefN-s">--</output></div>
 
     <div class="field switch">
       <label>Archivar datos</label>
-      <button id="archivar" class="toggle">OFF</button>
+      <button id="archivar-s" class="toggle">OFF</button>
+    </div>
+    <div class="field"><button id="btnSave-s">Guardar Datos (SAVE)</button></div>
+    <div class="field"><label>Elementos</label><output id="contador-s">0</output></div>
+    <div class="field switch">
+      <label>Modo Ctrl</label>
+      <button id="modoCtrl-s" class="toggle">Manual</button>
+      <small class="hint" id="hint-s">Manual: Ref. sigue a PV (bumpless)</small>
+    </div>
+
+    <div class="field">
+      <button id="btnRun-s">Iniciar simulación</button>
     </div>
     <div class="field">
-      <button id="btnSave">Guardar Datos (SAVE)</button>
-    </div>
-    <div class="field"><label>Elementos</label><output id="contador">0</output></div>
-    
-    <div class="field"><label>K<sub>p</sub></label>
-      <input type="number" id="kp" value="1" step="0.1">
-    </div>
-    <div class="field"><label>&#964</label>
-      <input type="number" id="tau" value="1" step="0.1">
-    </div>
-    <div class="field"><label>&#952</label>
-      <input type="number" id="theta" value="1" step="0.1">
-    </div>
-    <div class="field"><label>Inicial</label>
-      <input type="number" id="inicial" value="0" step="0.1">
+      <button id="btnReset-s">Aplicar / Reiniciar planta</button>
     </div>
   </div>
 </section>
@@ -150,14 +158,18 @@
 <section id="tab-variables" class="tab-page">
   <div class="panel">
     <div class="field wide">
-      <label>Calibración PV (y = mx + b)</label>
-      <div class="field"><label>m</label>
-        <input type="number" id="m" value="0" step="0.01">
-      </div>
-      <div class="field"><label>b</label>
-        <input type="number" id="b" value="0" step="0.01">
-      </div>
+      <label>Calibración PV del sensor real (PV = mx + b)</label>
     </div>
+    <div class="field"><label>m</label>
+      <input type="number" id="m" value="1" step="0.001">
+    </div>
+    <div class="field"><label>b</label>
+      <input type="number" id="b" value="0" step="0.1">
+    </div>
+
+    <div class="field"><label>ADC crudo</label><output id="raw">--</output></div>
+    <div class="field"><label>Frecuencia real</label><output id="fps">--</output> Hz</div>
+    <div class="field"><label>RTT</label><output id="rtt">--</output> ms</div>
   </div>
 </section>
 

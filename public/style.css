@@ -42,3 +42,14 @@ canvas { width: 100%; background: #0d1015; border-radius: 6px; }
 
 .btn-stop { background: #c62828 !important; font-weight: bold; }
 .toggle.on { background: #2e7d32 !important; }
+.field input:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+#estadoSim.on { color: #66bb6a; }
+#estadoSim.off { color: #ef5350; }
+.hint { color: #7d8a99; font-size: 0.7rem; }
+input[disabled], output {
+  opacity: 0.55; cursor: not-allowed;
+}
+input:not([disabled]) { opacity: 1; cursor: text; }

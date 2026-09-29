@@ -12,8 +12,14 @@ services:
     ports:
       - "8081:8081"
     volumes:
-      - /dev:/dev                       # para detectar placas conectadas en caliente
+      - /dev:/dev
     device_cgroup_rules:
-      - "c 188:* rmw"                   # ttyUSB (CH340, CP2102, FTDI)
-      - "c 166:* rmw"                   # ttyACM (Arduino Uno/Mega/Leonardo)
+      - "c 188:* rmw"
+      - "c 166:* rmw"
+    restart: unless-stopped
+
+  simulator:
+    build: ./simulator
+    ports:
+      - "8082:5000"
     restart: unless-stopped
