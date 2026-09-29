@@ -72,15 +72,18 @@ document.querySelectorAll('.tab-btn').forEach((btn) => {
 
 // ==================== GRAFICADO ====================
 const MAX_PLOT = 100;
-function dibujarSerie(canvas, s1, s2, max) {
+function dibujarSerie(canvas, s1, s2, max, nombre1 = '', nombre2 = '') {
   const ctx = canvas.getContext('2d');
   const w = canvas.width, h = canvas.height;
   ctx.clearRect(0, 0, w, h);
+
+  // Rejilla
   ctx.strokeStyle = '#26303b';
   for (let i = 0; i <= 4; i++) {
     const y = (i / 4) * h;
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
   }
+
   const linea = (serie, color) => {
     ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath();
     serie.forEach((v, i) => {
@@ -90,8 +93,47 @@ function dibujarSerie(canvas, s1, s2, max) {
     });
     ctx.stroke();
   };
-  linea(s1, '#4fc3f7');
-  linea(s2, '#66bb6a');
+
+  const color1 = '#4fc3f7';
+  const color2 = '#66bb6a';
+  linea(s1, color1);
+  linea(s2, color2);
+
+  // ---------- Leyenda ----------
+  if (nombre1 || nombre2) {
+    const items = [
+      { nombre: nombre1, color: color1 },
+      { nombre: nombre2, color: color2 },
+    ].filter((it) => it.nombre);
+
+    const boxSize = 10;
+    const paddingX = 8;
+    const paddingY = 6;
+    const lineHeight = 16;
+    const fontSize = 11;
+
+    ctx.font = `${fontSize}px system-ui, sans-serif`;
+    const anchoTexto = Math.max(...items.map((it) => ctx.measureText(it.nombre).width));
+    const legendW = boxSize + 6 + anchoTexto + paddingX * 2;
+    const legendH = items.length * lineHeight + paddingY * 2 - 4;
+
+    const x0 = w - legendW - 8;   // esquina superior derecha
+    const y0 = 8;
+
+    ctx.fillStyle = 'rgba(13, 16, 21, 0.75)';
+    ctx.fillRect(x0, y0, legendW, legendH);
+    ctx.strokeStyle = '#2d3642';
+    ctx.strokeRect(x0, y0, legendW, legendH);
+
+    items.forEach((it, i) => {
+      const y = y0 + paddingY + i * lineHeight;
+      ctx.fillStyle = it.color;
+      ctx.fillRect(x0 + paddingX, y + 2, boxSize, boxSize);
+      ctx.fillStyle = '#e8eaed';
+      ctx.textBaseline = 'top';
+      ctx.fillText(it.nombre, x0 + paddingX + boxSize + 6, y);
+    });
+  }
 }
 
 // ==================== MODO MANUAL/AUTO (bumpless) ====================
@@ -208,9 +250,8 @@ ws.onmessage = (e) => {
 
     [histPVm, histSPm, histErrm, histOPm].forEach((h) => { if (h.length > MAX_PLOT) h.shift(); });
     histPVm.push(pv); histSPm.push(sp); histErrm.push(err); histOPm.push(op);
-    dibujarSerie($('chartPV-m'), histSPm, histPVm, 340);
-    dibujarSerie($('chartErr-m'), histErrm, histOPm, 100);
-
+    dibujarSerie($('chartPV-m'), histSPm, histPVm, 340, 'SP', 'PV');
+    dibujarSerie($('chartErr-m'), histErrm, histOPm, 100, 'Error', 'OP');
     if (archivandoM) {
       registroM.push({ t: msg.t - tInicioM, raw: msg.raw, pv: pv.toFixed(2), sp, err: err.toFixed(2), op });
       $('contador-m').textContent = registroM.length;
@@ -296,8 +337,8 @@ async function pasoSim() {
 
     [histPVs, histSPs, histErrs, histOPs].forEach((h) => { if (h.length > MAX_PLOT) h.shift(); });
     histPVs.push(pv); histSPs.push(sp); histErrs.push(err); histOPs.push(op);
-    dibujarSerie($('chartPV-s'), histSPs, histPVs, Math.max(10, Math.max(...histPVs, ...histSPs) * 1.2));
-    dibujarSerie($('chartErr-s'), histErrs, histOPs, 100);
+    dibujarSerie($('chartPV-s'), histSPs, histPVs, Math.max(10, Math.max(...histPVs, ...histSPs) * 1.2), 'SP', 'PV');
+    dibujarSerie($('chartErr-s'), histErrs, histOPs, 100, 'Error', 'OP');
 
     if (archivandoS) {
       registroS.push({ t: Date.now() - tInicioS, pv: pv.toFixed(2), sp, err: err.toFixed(2), op });
