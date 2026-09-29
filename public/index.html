@@ -1,87 +1,166 @@
 <!DOCTYPE html>
 <html lang="es">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>HMI</title>
-        <link rel="stylesheet" href="style.css">
-    </head>
-    <body>
-        <header>
-            <h1>Human-Machine Interface</h1>
-            <label>Puerto
-                <select id="ports"></select>
-            </label>
-            <label>Baud
-                <select id="baud">
-                <option value="9600">9600</option>
-                <option value="115200">115200</option>
-                </select>
-            </label>
-            <button id="btnConn">Conectar</button>
-            <span id="estado" class="off">Desconectado</span>
-        </header>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HMI</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
 
-        <main>
-            <section class="card">
-                <h2>PV / Error</h2>
-                <p>PV: <b id="pv">0</b> °</p>
-                <p>Error: <b id="error">0</b> °</p>
-                <p class="small">ADC crudo: <span id="raw">--</span> / 4095</p>
-            </section>
+<header>
+  <h1>Human-Machine Interface</h1>
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="monitor">Monitor</button>
+    <button class="tab-btn" data-tab="variables">Variables</button>
+  </nav>
+  <div class="conn">
+    <select id="ports"></select>
+    <select id="baud">
+      <option value="9600">9600</option>
+      <option value="115200">115200</option>
+    </select>
+    <button id="btnConn">Conectar</button>
+    <span id="estado" class="off">Desconectado</span>
+  </div>
+</header>
 
-            <section class="card">
-                <h2>Referencia y Ts</h2>
-                <label>Referencia (°)
-                <input type="number" id="referencia" value="0" step="1">
-                </label>
-                <label>Ts (ms)
-                <input type="number" id="ts" value="1000" step="10" min="5">
-                </label>
-                <button id="btnTs">Aplicar Ts</button>
-                <p class="small">Frecuencia real: <b id="fps">--</b> Hz &nbsp;|&nbsp; RTT: <b id="rtt">--</b> ms</p>
-            </section>
+<!-- ===================== PESTAÑA MONITOR ===================== -->
+<section id="tab-monitor" class="tab-page active">
+  <div class="charts">
+    <div class="chart-box">
+      <h3>Variable de Proceso (PV) y Referencia (SP)</h3>
+      <canvas id="chartPV" width="600" height="220"></canvas>
+    </div>
+    <div class="chart-box">
+      <h3>Error y Manipulación</h3>
+      <canvas id="chartErr" width="600" height="220"></canvas>
+    </div>
+  </div>
 
-            <section class="card">
-                <h2>Manipulación (OP)</h2>
-                <input type="range" id="pwm" min="0" max="100" value="0">
-                <p><b id="pwmVal">0</b> %</p>
-            </section>
+  <div class="panel">
+    <div class="field"><label>Referencia</label>
+      <input type="number" id="referencia" value="0" step="1">
+    </div>
+    <div class="field"><label>Proceso</label><output id="pv">0</output></div>
+    <div class="field"><label>Error</label><output id="error">0</output></div>
+    <div class="field"><label>Manipulación</label>
+      <input type="number" id="op" value="0" min="0" max="100" step="1">
+    </div>
+    <div class="field"><label>T<sub>s</sub> (s)</label>
+      <input type="number" id="ts" value="1" min="0.1" step="0.1">
+    </div>
 
-            <section class="card">
-                <h2>Modo / Control</h2>
-                <label><input type="checkbox" id="modo"> Modo Auto (deshabilitado en esta práctica)</label>
-                <button id="btnStop">STOP</button>
-            </section>
+    <div class="field"><label>K<sub>c</sub></label>
+      <input type="number" id="kc" value="0" step="0.1">
+    </div>
+    <div class="field"><label>&#964<sub>i</sub></label>
+      <input type="number" id="taui" value="0" step="0.1">
+    </div>
+    <div class="field"><label>&#964<sub>d</sub></label>
+      <input type="number" id="taud" value="0" step="0.1">
+    </div>
 
-            <section class="card">
-                <h2>PID (referencia futura)</h2>
-                <label>Kc <input type="number" id="kc" value="0" step="0.1"></label>
-                <label>Tau_i <input type="number" id="taui" value="0" step="0.1"></label>
-                <label>Tau_d <input type="number" id="taud" value="0" step="0.1"></label>
-            </section>
+    <div class="field switch">
+      <label>Modo de Control</label>
+      <button id="modoCtrl" class="toggle">Manual</button>
+    </div>
 
-            <section class="card">
-                <h2>Calibración PV (0°-340°)</h2>
-                <p class="small">Gira el potenciómetro a su tope físico mínimo y captura; luego al tope máximo.</p>
-                <button id="capMin">Capturar 0°</button> raw0: <span id="raw0">0</span>
-                <br>
-                <button id="capMax">Capturar 340°</button> rawMax: <span id="rawMax">4095</span>
-            </section>
+    <div class="field switch">
+      <label>Archivar datos</label>
+      <button id="archivar" class="toggle">OFF</button>
+    </div>
+    <div class="field">
+      <button id="btnSave">Guardar Datos</button>
+    </div>
+    <div class="field"><label>Elementos</label><output id="contador">0</output></div>
 
-            <section class="card">
-                <h2>Archivar datos</h2>
-                <label><input type="checkbox" id="archivar"> Archivar</label>
-                <span class="small">Muestras: <b id="contador">0</b></span>
-                <button id="btnSave">Guardar Datos (SAVE)</button>
-            </section>
+    <div class="field">
+      <button id="btnStop" class="btn-stop">STOP</button>
+    </div>
+  </div>
+</section>
 
-            <section class="card wide">
-                <h2>Gráfica PV</h2>
-                <canvas id="grafica" width="900" height="260"></canvas>
-            </section>
-        </main>
+<!-- ===================== PESTAÑA SIMULACIÓN ===================== -->
+<section id="tab-simulacion" class="tab-page">
+  <div class="charts">
+    <div class="chart-box">
+      <h3>Variable de Proceso (PV) y Referencia (SP)</h3>
+      <canvas id="chartPV" width="600" height="220"></canvas>
+    </div>
+    <div class="chart-box">
+      <h3>Error y Manipulación</h3>
+      <canvas id="chartErr" width="600" height="220"></canvas>
+    </div>
+  </div>
 
-        <script src="script.js"></script>
-    </body>
+  <div class="panel">
+    <div class="field"><label>Referencia</label>
+      <input type="number" id="referencia" value="0" step="1">
+    </div>
+    <div class="field"><label>Proceso</label><output id="pv">0</output></div>
+    <div class="field"><label>Error</label><output id="error">0</output></div>
+    <div class="field"><label>Manipulación</label>
+      <input type="number" id="op" value="0" min="0" max="100" step="1">
+    </div>
+    <div class="field"><label>T<sub>s</sub> (s)</label>
+      <input type="number" id="ts" value="1" min="0.1" step="0.1">
+    </div>
+
+    <div class="field"><label>K<sub>c</sub></label>
+      <input type="number" id="kc" value="0" step="0.1">
+    </div>
+    <div class="field"><label>&#964<sub>i</sub></label>
+      <input type="number" id="taui" value="0" step="0.1">
+    </div>
+    <div class="field"><label>&#964<sub>d</sub></label>
+      <input type="number" id="taud" value="0" step="0.1">
+    </div>
+
+    <div class="field switch">
+      <label>Modo de Control</label>
+      <button id="modoCtrl" class="toggle">Manual</button>
+    </div>
+
+    <div class="field switch">
+      <label>Archivar datos</label>
+      <button id="archivar" class="toggle">OFF</button>
+    </div>
+    <div class="field">
+      <button id="btnSave">Guardar Datos (SAVE)</button>
+    </div>
+    <div class="field"><label>Elementos</label><output id="contador">0</output></div>
+    
+    <div class="field"><label>K<sub>p</sub></label>
+      <input type="number" id="kp" value="1" step="0.1">
+    </div>
+    <div class="field"><label>&#964</label>
+      <input type="number" id="tau" value="1" step="0.1">
+    </div>
+    <div class="field"><label>&#952</label>
+      <input type="number" id="theta" value="1" step="0.1">
+    </div>
+    <div class="field"><label>Inicial</label>
+      <input type="number" id="inicial" value="0" step="0.1">
+    </div>
+  </div>
+</section>
+
+<!-- ===================== PESTAÑA VARIABLES ===================== -->
+<section id="tab-variables" class="tab-page">
+  <div class="panel">
+    <div class="field wide">
+      <label>Calibración PV (y = mx + b)</label>
+      <div class="field"><label>m</label>
+        <input type="number" id="m" value="0" step="0.01">
+      </div>
+      <div class="field"><label>b</label>
+        <input type="number" id="b" value="0" step="0.01">
+      </div>
+    </div>
+  </div>
+</section>
+
+<script src="script.js"></script>
+</body>
 </html>

@@ -1,10 +1,44 @@
+* { box-sizing: border-box; }
 body { margin: 0; font-family: system-ui, sans-serif; background: #12161c; color: #e8eaed; }
-header { display: flex; gap: 12px; align-items: center; padding: 12px 20px; background: #1c222b; }
-header h1 { margin: 0; font-size: 1.2rem; flex: 1; }
-main { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; padding: 20px; }
-.card { background: #1c222b; border-radius: 10px; padding: 16px; }
-.wide { grid-column: 1 / -1; }
-button, select { padding: 8px 14px; border: 0; border-radius: 6px; background: #2d3642; color: inherit; cursor: pointer; }
-button.activo { background: #2e7d32; }
-canvas { width: 100%; background: #0d1015; border-radius: 6px; }
+
+header {
+  display: flex; align-items: center; gap: 20px;
+  padding: 10px 20px; background: #1c222b; flex-wrap: wrap;
+}
+header h1 { margin: 0; font-size: 1.2rem; }
+
+.tabs { display: flex; gap: 4px; }
+.tab-btn {
+  background: #2d3642; color: #aab3bf; border: 0; padding: 8px 18px;
+  border-radius: 6px 6px 0 0; cursor: pointer; font-size: 0.9rem;
+}
+.tab-btn.active { background: #0d1015; color: #4fc3f7; font-weight: bold; }
+
+.conn { display: flex; gap: 8px; align-items: center; margin-left: auto; }
+.conn select, .conn button { padding: 6px 10px; border: 0; border-radius: 6px; background: #2d3642; color: inherit; }
+.conn button { cursor: pointer; }
 #estado.on { color: #66bb6a; } #estado.off { color: #ef5350; }
+
+.tab-page { display: none; padding: 20px; }
+.tab-page.active { display: block; }
+
+.charts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+.chart-box { background: #1c222b; border-radius: 10px; padding: 12px; }
+.chart-box h3 { margin: 0 0 8px; font-size: 0.9rem; color: #aab3bf; }
+canvas { width: 100%; background: #0d1015; border-radius: 6px; }
+
+.panel {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px; background: #1c222b; border-radius: 10px; padding: 16px;
+}
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field.wide { grid-column: 1 / -1; }
+.field label { font-size: 0.75rem; color: #aab3bf; text-transform: uppercase; letter-spacing: .03em; }
+.field input, .field output {
+  background: #0d1015; border: 1px solid #2d3642; border-radius: 6px;
+  padding: 8px; color: #e8eaed; font-size: 1rem;
+}
+.field button { padding: 10px; border: 0; border-radius: 6px; background: #2d3642; color: inherit; cursor: pointer; }
+
+.btn-stop { background: #c62828 !important; font-weight: bold; }
+.toggle.on { background: #2e7d32 !important; }
