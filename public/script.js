@@ -1,6 +1,66 @@
 const $ = (id) => document.getElementById(id);
 
-// ---------- Navegación de pestañas ----------
+// ==================== PID DISCRETO ====================
+class PIDDiscreto {
+  constructor() {
+    this.A1 = 1; this.B0 = 0; this.B1 = 0; this.B2 = 0;
+    this.op_prev = 0; this.err_prev1 = 0; this.err_prev2 = 0;
+    this.activo = false;
+  }
+  sintonizar(Kc, tau_i, tau_d, Ts) {
+    if (tau_i === 0) tau_i = 0.0001;
+    this.B0 = Kc * (1 + Ts / (2 * tau_i) + tau_d / Ts);
+    this.B1 = Kc * (Ts / (2 * tau_i) - 1 - 2 * tau_d / Ts);
+    this.B2 = Kc * (tau_d / Ts);
+  }
+  calcular(err) {
+    if (!this.activo) return this.op_prev;
+    let op = this.A1 * this.op_prev + this.B0 * err + this.B1 * this.err_prev1 + this.B2 * this.err_prev2;
+    op = Math.max(0, Math.min(100, op));   // anti-windup simple
+    this.op_prev = op;
+    this.err_prev2 = this.err_prev1;
+    this.err_prev1 = err;
+    return op;
+  }
+  inicializarBumpless(op_actual, err_actual) {
+    this.op_prev = op_actual;
+    this.err_prev1 = err_actual;
+    this.err_prev2 = err_actual;
+    this.activo = true;
+  }
+  desactivar() { this.activo = false; }
+}
+
+const pidMonitor = new PIDDiscreto();
+const pidSimulacion = new PIDDiscreto();
+
+// Llama a pid.sintonizar() solo cuando Kc, Tau_i, Tau_d o Ts cambian,
+// y una vez al inicio para que arranque con coeficientes válidos.
+function wireSintonia(pid, prefix) {
+  const kc = $(`kc-${prefix}`);
+  const taui = $(`taui-${prefix}`);
+  const taud = $(`taud-${prefix}`);
+  const ts = $(`ts-${prefix}`);
+
+  const resintonizar = () => {
+    pid.sintonizar(
+      Number(kc.value) || 0,
+      Number(taui.value) || 0,
+      Number(taud.value) || 0,
+      Number(ts.value) || 1,
+    );
+  };
+
+  [kc, taui, taud, ts].forEach((input) => input.addEventListener('change', resintonizar));
+
+  resintonizar();          // primera sintonía al cargar la página
+  return resintonizar;     // por si se necesita forzar la sintonía en otro punto (bumpless)
+}
+
+const resintonizarM = wireSintonia(pidMonitor, 'm');
+const resintonizarS = wireSintonia(pidSimulacion, 's');
+
+// ==================== PESTAÑAS ====================
 document.querySelectorAll('.tab-btn').forEach((btn) => {
   btn.onclick = () => {
     document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
@@ -10,7 +70,7 @@ document.querySelectorAll('.tab-btn').forEach((btn) => {
   };
 });
 
-// ---------- Utilidad: dibujar dos series en un canvas ----------
+// ==================== GRAFICADO ====================
 const MAX_PLOT = 100;
 function dibujarSerie(canvas, s1, s2, max) {
   const ctx = canvas.getContext('2d');
@@ -30,50 +90,66 @@ function dibujarSerie(canvas, s1, s2, max) {
     });
     ctx.stroke();
   };
-  linea(serie1 = s1, '#4fc3f7');
+  linea(s1, '#4fc3f7');
   linea(s2, '#66bb6a');
 }
 
-// ---------- Manual/Automático con bumpless transfer ----------
-// Manual: Referencia deshabilitada y sigue a PV. OP habilitada, el usuario la controla.
-// Automático: Referencia habilitada (SP deseado). OP deshabilitada (la fijará el PID).
-function wireModo(prefix) {
+// ==================== MODO MANUAL/AUTO (bumpless) ====================
+// wireModo ahora acepta un callback opcional que se dispara al cambiar de modo,
+// para que el PID pueda inicializarse en bumpless sin que nadie reasigne el onclick.
+function wireModo(prefix, onCambio) {
   const btn = $(`modoCtrl-${prefix}`);
   const ref = $(`referencia-${prefix}`);
   const op = $(`op-${prefix}`);
   let auto = false;
+
   const aplicar = () => {
-    ref.disabled = auto ? false : true;
-    op.disabled = auto ? true : false;
+    ref.disabled = !auto;
+    op.disabled = auto;
     btn.textContent = auto ? 'Automático' : 'Manual';
     btn.classList.toggle('on', auto);
   };
   aplicar();
+
   btn.onclick = () => {
     auto = !auto;
     aplicar();
+    if (onCambio) onCambio(auto);
   };
+
   return {
     esAuto: () => auto,
-    trackReferencia: (pv) => {
-      if (!auto) {
-        ref.value = pv.toFixed(2);
-      }
-    },
-    setReferenciaManual: (sp) => {
-      if (!auto) {
-        ref.value = sp.toFixed(2);
-      }
-    },
+    trackReferencia: (pv) => { if (!auto) ref.value = pv.toFixed(2); },
   };
 }
 
-const modoM = wireModo('m');
-const modoS = wireModo('s');
+const modoM = wireModo('m', (auto) => {
+  if (auto) {
+    resintonizarM();
+    const opActual = Number($('op-m').value) || 0;
+    const pv = Number($('pv-m').textContent) || 0;
+    const sp = Number($('referencia-m').value) || 0;
+    pidMonitor.inicializarBumpless(opActual, sp - pv);
+  } else {
+    pidMonitor.desactivar();
+  }
+});
 
-// ============================================================
-// ============================ MONITOR =======================
-// ============================================================
+const modoS = wireModo('s', (auto) => {
+  if (auto) {
+    resintonizarS();
+    const opActual = Number($('op-s').value) || 0;
+    const pv = Number($('pv-s').textContent) || 0;
+    const sp = Number($('referencia-s').value) || 0;
+    pidSimulacion.inicializarBumpless(opActual, sp - pv);
+  } else {
+    pidSimulacion.desactivar();
+  }
+});
+
+// ==========================================================
+// ========================= MONITOR =======================
+// ==========================================================
 const ws = new WebSocket(`ws://${location.hostname}:8081`);
 let conectado = false;
 const histPVm = [], histSPm = [], histErrm = [], histOPm = [];
@@ -94,20 +170,29 @@ ws.onmessage = (e) => {
       ? msg.ports.map((p) => `<option value="${p.path}">${p.path} ${p.manufacturer}</option>`).join('')
       : '<option value="">Sin placas detectadas</option>';
   }
+
   if (msg.type === 'status') {
     conectado = msg.connected;
     $('estado').textContent = conectado ? `Conectado ${msg.path} @${msg.baud || ''}bps` : 'Desconectado';
     $('estado').className = conectado ? 'on' : 'off';
     $('btnConn').textContent = conectado ? 'Desconectar' : 'Conectar';
   }
+
   if (msg.type === 'error') alert(msg.msg);
 
   if (msg.type === 'adc') {
     const pv = msg.raw * mCal + bCal;
-    modoM.trackReferencia(pv);                 // bumpless si está en Manual
+    modoM.trackReferencia(pv);
+
     const sp = Number($('referencia-m').value) || 0;
-    const op = Number($('op-m').value) || 0;
+    let op = Number($('op-m').value) || 0;
     const err = sp - pv;
+
+    if (pidMonitor.activo) {
+      op = pidMonitor.calcular(err);
+      $('op-m').value = op.toFixed(0);
+      enviarWs({ type: 'pwm', value: op });
+    }
 
     $('raw').textContent = msg.raw;
     $('pv-m').textContent = pv.toFixed(2);
@@ -156,7 +241,7 @@ $('archivar-m').onclick = () => {
 $('btnSave-m').onclick = () => descargarCsv(registroM, 'monitor');
 
 // ===========================================================
-// ========================= SIMULACIÓN ======================
+// ========================= SIMULACIÓN =======================
 // ===========================================================
 const SIM_URL = `http://${location.hostname}:8082`;
 const histPVs = [], histSPs = [], histErrs = [], histOPs = [];
@@ -187,63 +272,35 @@ async function aplicarParametrosSim() {
 }
 
 async function pasoSim() {
-
   const auto = modoS.esAuto();
-
-  const kp = Number($('kp-s').value) || 0;
-  const op = Number($('op-s').value) || 0;
-  const inicial = Number($('inicial-s').value) || 0;
+  let op = Number($('op-s').value) || 0;
 
   try {
-
     const r = await fetch(`${SIM_URL}/step`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ op }),
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op }),
     });
     const d = await r.json();
-    const pv = d.pv+inicial;
-    let sp;
-    if (auto) {
-      // Automático:
-      // el usuario define la referencia
-      sp = Number($('referencia-s').value) || 0;
-    } else {
-      // Manual:
-      // SP = Kp * OP + valor inicial
-      sp = kp * op + inicial;
-      modoS.setReferenciaManual(sp);
-    }
+    const pv = d.pv;                       // el backend ya arranca en "inicial"; no sumar de nuevo
+    modoS.trackReferencia(pv);
+
+    const sp = Number($('referencia-s').value) || 0;
     const err = sp - pv;
+
+    if (auto && pidSimulacion.activo) {
+      op = pidSimulacion.calcular(err);
+      $('op-s').value = op.toFixed(2);
+    }
+
     $('pv-s').textContent = pv.toFixed(2);
     $('error-s').textContent = err.toFixed(2);
-    [histPVs, histSPs, histErrs, histOPs].forEach((h) => {
-      if (h.length > MAX_PLOT) h.shift();
-    });
-    histPVs.push(pv);
-    histSPs.push(sp);
-    histErrs.push(err);
-    histOPs.push(op);
-    dibujarSerie(
-      $('chartPV-s'),
-      histSPs,
-      histPVs,
-      Math.max(10, Math.max(...histPVs, ...histSPs) * 1.2)
-    );
-    dibujarSerie(
-      $('chartErr-s'),
-      histErrs,
-      histOPs,
-      100
-    );
+
+    [histPVs, histSPs, histErrs, histOPs].forEach((h) => { if (h.length > MAX_PLOT) h.shift(); });
+    histPVs.push(pv); histSPs.push(sp); histErrs.push(err); histOPs.push(op);
+    dibujarSerie($('chartPV-s'), histSPs, histPVs, Math.max(10, Math.max(...histPVs, ...histSPs) * 1.2));
+    dibujarSerie($('chartErr-s'), histErrs, histOPs, 100);
+
     if (archivandoS) {
-      registroS.push({
-        t: Date.now() - tInicioS,
-        pv: pv.toFixed(2),
-        sp: sp.toFixed(2),
-        err: err.toFixed(2),
-        op: op
-      });
+      registroS.push({ t: Date.now() - tInicioS, pv: pv.toFixed(2), sp, err: err.toFixed(2), op });
       $('contador-s').textContent = registroS.length;
     }
   } catch (err) {
@@ -260,9 +317,9 @@ $('btnRun-s').onclick = async () => {
     $('btnRun-s').textContent = 'Iniciar simulación';
     return;
   }
-  await aplicarParametrosSim();          // asegura estado inicial correcto
+  await aplicarParametrosSim();
   const Ts = Math.max(0.05, Number($('ts-s').value) || 1);
-  simTimer = setInterval(pasoSim, Ts * 1000);   // igual que en la vida real: 1 muestra cada Ts
+  simTimer = setInterval(pasoSim, Ts * 1000);
   simCorriendo = true;
   $('btnRun-s').textContent = 'Detener simulación';
 };
@@ -277,7 +334,7 @@ $('archivar-s').onclick = () => {
 };
 $('btnSave-s').onclick = () => descargarCsv(registroS, 'simulacion');
 
-// ---------- Utilidad: descargar CSV ----------
+// ==================== CSV ====================
 function descargarCsv(registro, nombre) {
   if (!registro.length) { alert('No hay datos archivados. Activa "Archivar datos" primero.'); return; }
   const header = Object.keys(registro[0]).join(',') + '\n';
@@ -289,5 +346,4 @@ function descargarCsv(registro, nombre) {
   a.click();
 }
 
-// Inicializa la planta simulada con valores por defecto al cargar la página
 aplicarParametrosSim();

@@ -47,7 +47,7 @@ def reset():
         k=float(d.get('k', 1.0)),
         tau=float(d.get('tau', 1.0)),
         theta=float(d.get('theta', 0.0)),
-        Ts=float(d.get('Ts', 1.0)),
+        Ts=float(d.get('Ts', 0.1)),
         inicial=float(d.get('inicial', 0.0)),
     )
     return jsonify(ok=True, a1=state['a1'], b1=state['b1'], b2=state['b2'], N=state['N'], m=state['m'], modulo=state['modulo'])
