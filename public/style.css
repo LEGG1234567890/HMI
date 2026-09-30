@@ -53,3 +53,14 @@ input[disabled], output {
   opacity: 0.55; cursor: not-allowed;
 }
 input:not([disabled]) { opacity: 1; cursor: text; }
+:root {
+  --color-op:  #4fc3f7;  /* azul actual */
+  --color-sp:  #ffa552;  /* naranja de la misma paleta */
+  --color-pv:  #66bb6a;  /* verde actual */
+  --color-err: #ef5350;  /* rojo de la misma paleta */
+}
+
+.chart-box { display: flex; flex-direction: column; gap: 6px; }
+.legend { display: flex; gap: 16px; padding: 0 4px; font-size: 0.75rem; color: #aab3bf; }
+.legend-item { display: flex; align-items: center; gap: 6px; }
+.legend-item i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }

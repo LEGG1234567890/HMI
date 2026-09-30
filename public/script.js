@@ -1,5 +1,52 @@
 const $ = (id) => document.getElementById(id);
-
+// ==================== COLORES DE LAS GRÁFICAS ====================
+const COLORS = { op: '#4fc3f7', sp: '#ffa552', pv: '#66bb6a', err: '#ef5350' };
+// ==================== INPUT "CONTROLADO" ====================
+// El valor solo se confirma (y queda disponible via .get()) al presionar
+// Enter o al perder el foco (change). Mientras el usuario escribe, el
+// resto de la app sigue usando el último valor confirmado.
+function numeroControlado(id, defaultValue = 0, { min, max } = {}) {
+  const el = $(id);
+  const clamp = (v) => {
+    if (min !== undefined) v = Math.max(min, v);
+    if (max !== undefined) v = Math.min(max, v);
+    return v;
+  };
+  let valor = clamp(Number(el.value));
+  if (!Number.isFinite(valor)) valor = defaultValue;
+  const confirmar = () => {
+    let v = Number(el.value);
+    if (!Number.isFinite(v)) v = valor;
+    valor = clamp(v);
+    el.value = valor;
+  };
+  el.addEventListener('change', confirmar);
+  el.addEventListener('keydown', (e) => { if (e.key === 'Enter') { confirmar(); el.blur(); } });
+  return {
+    get: () => valor,
+    set: (v) => { valor = clamp(v); el.value = valor; },
+    el,
+  };
+}
+// ==================== CAMPOS CONTROLADOS ====================
+const referenciaM = numeroControlado('referencia-m', 0);
+const opM = numeroControlado('op-m', 0, { min: 0, max: 100 });
+const tsM = numeroControlado('ts-m', 0.1, { min: 0.05 });
+const kcM = numeroControlado('kc-m', 0);
+const tauiM = numeroControlado('taui-m', 0);
+const taudM = numeroControlado('taud-m', 0);
+const referenciaS = numeroControlado('referencia-s', 0);
+const opS = numeroControlado('op-s', 0, { min: 0, max: 100 });
+const tsS = numeroControlado('ts-s', 0.1, { min: 0.05 });
+const kcS = numeroControlado('kc-s', 0);
+const tauiS = numeroControlado('taui-s', 0);
+const taudS = numeroControlado('taud-s', 0);
+const kpS = numeroControlado('kp-s', 1);
+const tauS = numeroControlado('tau-s', 1);
+const thetaS = numeroControlado('theta-s', 0);
+const inicialS = numeroControlado('inicial-s', 0);
+const mCalCtrl = numeroControlado('m', 1);
+const bCalCtrl = numeroControlado('b', 0);
 // ==================== PID DISCRETO ====================
 class PIDDiscreto {
   constructor() {
@@ -16,7 +63,7 @@ class PIDDiscreto {
   calcular(err) {
     if (!this.activo) return this.op_prev;
     let op = this.A1 * this.op_prev + this.B0 * err + this.B1 * this.err_prev1 + this.B2 * this.err_prev2;
-    op = Math.max(0, Math.min(100, op));   // anti-windup simple
+    op = Math.max(0, Math.min(100, op));
     this.op_prev = op;
     this.err_prev2 = this.err_prev1;
     this.err_prev1 = err;
@@ -30,36 +77,8 @@ class PIDDiscreto {
   }
   desactivar() { this.activo = false; }
 }
-
 const pidMonitor = new PIDDiscreto();
 const pidSimulacion = new PIDDiscreto();
-
-// Llama a pid.sintonizar() solo cuando Kc, Tau_i, Tau_d o Ts cambian,
-// y una vez al inicio para que arranque con coeficientes válidos.
-function wireSintonia(pid, prefix) {
-  const kc = $(`kc-${prefix}`);
-  const taui = $(`taui-${prefix}`);
-  const taud = $(`taud-${prefix}`);
-  const ts = $(`ts-${prefix}`);
-
-  const resintonizar = () => {
-    pid.sintonizar(
-      Number(kc.value) || 0,
-      Number(taui.value) || 0,
-      Number(taud.value) || 0,
-      Number(ts.value) || 1,
-    );
-  };
-
-  [kc, taui, taud, ts].forEach((input) => input.addEventListener('change', resintonizar));
-
-  resintonizar();          // primera sintonía al cargar la página
-  return resintonizar;     // por si se necesita forzar la sintonía en otro punto (bumpless)
-}
-
-const resintonizarM = wireSintonia(pidMonitor, 'm');
-const resintonizarS = wireSintonia(pidSimulacion, 's');
-
 // ==================== PESTAÑAS ====================
 document.querySelectorAll('.tab-btn').forEach((btn) => {
   btn.onclick = () => {
@@ -69,21 +88,17 @@ document.querySelectorAll('.tab-btn').forEach((btn) => {
     $(`tab-${btn.dataset.tab}`).classList.add('active');
   };
 });
-
-// ==================== GRAFICADO ====================
+// ==================== GRAFICADO (la leyenda vive en el HTML, no aquí) ====================
 const MAX_PLOT = 100;
-function dibujarSerie(canvas, s1, s2, max, nombre1 = '', nombre2 = '') {
+function dibujarSerie(canvas, s1, color1, s2, color2, max) {
   const ctx = canvas.getContext('2d');
   const w = canvas.width, h = canvas.height;
   ctx.clearRect(0, 0, w, h);
-
-  // Rejilla
   ctx.strokeStyle = '#26303b';
   for (let i = 0; i <= 4; i++) {
     const y = (i / 4) * h;
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
   }
-
   const linea = (serie, color) => {
     ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath();
     serie.forEach((v, i) => {
@@ -93,97 +108,58 @@ function dibujarSerie(canvas, s1, s2, max, nombre1 = '', nombre2 = '') {
     });
     ctx.stroke();
   };
-
-  const color1 = '#4fc3f7';
-  const color2 = '#66bb6a';
   linea(s1, color1);
   linea(s2, color2);
-
-  // ---------- Leyenda ----------
-  if (nombre1 || nombre2) {
-    const items = [
-      { nombre: nombre1, color: color1 },
-      { nombre: nombre2, color: color2 },
-    ].filter((it) => it.nombre);
-
-    const boxSize = 10;
-    const paddingX = 8;
-    const paddingY = 6;
-    const lineHeight = 16;
-    const fontSize = 11;
-
-    ctx.font = `${fontSize}px system-ui, sans-serif`;
-    const anchoTexto = Math.max(...items.map((it) => ctx.measureText(it.nombre).width));
-    const legendW = boxSize + 6 + anchoTexto + paddingX * 2;
-    const legendH = items.length * lineHeight + paddingY * 2 - 4;
-
-    const x0 = w - legendW - 8;   // esquina superior derecha
-    const y0 = 8;
-
-    ctx.fillStyle = 'rgba(13, 16, 21, 0.75)';
-    ctx.fillRect(x0, y0, legendW, legendH);
-    ctx.strokeStyle = '#2d3642';
-    ctx.strokeRect(x0, y0, legendW, legendH);
-
-    items.forEach((it, i) => {
-      const y = y0 + paddingY + i * lineHeight;
-      ctx.fillStyle = it.color;
-      ctx.fillRect(x0 + paddingX, y + 2, boxSize, boxSize);
-      ctx.fillStyle = '#e8eaed';
-      ctx.textBaseline = 'top';
-      ctx.fillText(it.nombre, x0 + paddingX + boxSize + 6, y);
-    });
-  }
 }
-
 // ==================== MODO MANUAL/AUTO (bumpless) ====================
-// wireModo ahora acepta un callback opcional que se dispara al cambiar de modo,
-// para que el PID pueda inicializarse en bumpless sin que nadie reasigne el onclick.
-function wireModo(prefix, onCambio) {
+function wireModo(prefix, refCtrl, opCtrl, onCambio) {
   const btn = $(`modoCtrl-${prefix}`);
-  const ref = $(`referencia-${prefix}`);
-  const op = $(`op-${prefix}`);
   let auto = false;
-
   const aplicar = () => {
-    ref.disabled = !auto;
-    op.disabled = auto;
+    refCtrl.el.disabled = !auto;
+    opCtrl.el.disabled = auto;
     btn.textContent = auto ? 'Automático' : 'Manual';
     btn.classList.toggle('on', auto);
   };
   aplicar();
-
   btn.onclick = () => {
     auto = !auto;
     aplicar();
     if (onCambio) onCambio(auto);
   };
-
   return {
     esAuto: () => auto,
-    trackReferencia: (pv) => { if (!auto) ref.value = pv.toFixed(2); },
+    trackReferencia: (pv) => { if (!auto) refCtrl.set(Number(pv.toFixed(2))); },
   };
 }
-
-const modoM = wireModo('m', (auto) => {
+// ==================== SINTONÍA: solo al confirmar Kc/Tau_i/Tau_d/Ts ====================
+function wireSintonia(pid, kcCtrl, tauiCtrl, taudCtrl, tsCtrl) {
+  const resintonizar = () => {
+    pid.sintonizar(kcCtrl.get(), tauiCtrl.get(), taudCtrl.get(), tsCtrl.get());
+  };
+  [kcCtrl, tauiCtrl, taudCtrl, tsCtrl].forEach((ctrl) => {
+    ctrl.el.addEventListener('change', resintonizar);
+    ctrl.el.addEventListener('keydown', (e) => { if (e.key === 'Enter') resintonizar(); });
+  });
+  resintonizar();
+  return resintonizar;
+}
+const resintonizarM = wireSintonia(pidMonitor, kcM, tauiM, taudM, tsM);
+const resintonizarS = wireSintonia(pidSimulacion, kcS, tauiS, taudS, tsS);
+const modoM = wireModo('m', referenciaM, opM, (auto) => {
   if (auto) {
     resintonizarM();
-    const opActual = Number($('op-m').value) || 0;
     const pv = Number($('pv-m').textContent) || 0;
-    const sp = Number($('referencia-m').value) || 0;
-    pidMonitor.inicializarBumpless(opActual, sp - pv);
+    pidMonitor.inicializarBumpless(opM.get(), referenciaM.get() - pv);
   } else {
     pidMonitor.desactivar();
   }
 });
-
-const modoS = wireModo('s', (auto) => {
+const modoS = wireModo('s', referenciaS, opS, (auto) => {
   if (auto) {
     resintonizarS();
-    const opActual = Number($('op-s').value) || 0;
     const pv = Number($('pv-s').textContent) || 0;
-    const sp = Number($('referencia-s').value) || 0;
-    pidSimulacion.inicializarBumpless(opActual, sp - pv);
+    pidSimulacion.inicializarBumpless(opS.get(), referenciaS.get() - pv);
   } else {
     pidSimulacion.desactivar();
   }
@@ -196,83 +172,66 @@ const ws = new WebSocket(`ws://${location.hostname}:8081`);
 let conectado = false;
 const histPVm = [], histSPm = [], histErrm = [], histOPm = [];
 let registroM = [], archivandoM = false, tInicioM = 0, tsSamplesM = [];
-
-let mCal = Number($('m').value) || 1;
-let bCal = Number($('b').value) || 0;
-$('m').onchange = () => { mCal = Number($('m').value) || 1; };
-$('b').onchange = () => { bCal = Number($('b').value) || 0; };
-
 const enviarWs = (obj) => ws.readyState === 1 && ws.send(JSON.stringify(obj));
 
 ws.onmessage = (e) => {
   const msg = JSON.parse(e.data);
-
   if (msg.type === 'ports') {
     $('ports').innerHTML = msg.ports.length
       ? msg.ports.map((p) => `<option value="${p.path}">${p.path} ${p.manufacturer}</option>`).join('')
       : '<option value="">Sin placas detectadas</option>';
   }
-
   if (msg.type === 'status') {
     conectado = msg.connected;
     $('estado').textContent = conectado ? `Conectado ${msg.path} @${msg.baud || ''}bps` : 'Desconectado';
     $('estado').className = conectado ? 'on' : 'off';
     $('btnConn').textContent = conectado ? 'Desconectar' : 'Conectar';
   }
-
   if (msg.type === 'error') alert(msg.msg);
-
   if (msg.type === 'adc') {
-    const pv = msg.raw * mCal + bCal;
+    const pv = msg.raw * mCalCtrl.get() + bCalCtrl.get();
     modoM.trackReferencia(pv);
-
-    const sp = Number($('referencia-m').value) || 0;
-    let op = Number($('op-m').value) || 0;
+    const sp = referenciaM.get();
+    let op = opM.get();
     const err = sp - pv;
-
     if (pidMonitor.activo) {
       op = pidMonitor.calcular(err);
-      $('op-m').value = op.toFixed(0);
+      opM.set(Number(op.toFixed(0)));
       enviarWs({ type: 'pwm', value: op });
     }
-
     $('raw').textContent = msg.raw;
     $('pv-m').textContent = pv.toFixed(2);
     $('error-m').textContent = err.toFixed(2);
     $('rtt').textContent = msg.rtt;
-
     tsSamplesM.push(msg.t);
     if (tsSamplesM.length > 20) tsSamplesM.shift();
     if (tsSamplesM.length > 1) {
       const dt = (tsSamplesM.at(-1) - tsSamplesM[0]) / (tsSamplesM.length - 1);
       $('fps').textContent = (1000 / dt).toFixed(2);
     }
-
     [histPVm, histSPm, histErrm, histOPm].forEach((h) => { if (h.length > MAX_PLOT) h.shift(); });
     histPVm.push(pv); histSPm.push(sp); histErrm.push(err); histOPm.push(op);
-    dibujarSerie($('chartPV-m'), histSPm, histPVm, 340, 'SP', 'PV');
-    dibujarSerie($('chartErr-m'), histErrm, histOPm, 100, 'Error', 'OP');
+    dibujarSerie($('chartPV-m'), histSPm, COLORS.sp, histPVm, COLORS.pv, 340);
+    dibujarSerie($('chartErr-m'), histErrm, COLORS.err, histOPm, COLORS.op, 100);
     if (archivandoM) {
       registroM.push({ t: msg.t - tInicioM, raw: msg.raw, pv: pv.toFixed(2), sp, err: err.toFixed(2), op });
       $('contador-m').textContent = registroM.length;
     }
   }
 };
-
 $('btnConn').onclick = () => {
   if (conectado) enviarWs({ type: 'disconnect' });
   else enviarWs({ type: 'connect', path: $('ports').value, baud: Number($('baud').value) });
 };
-$('op-m').onchange = (e) => {
-  const v = Math.max(0, Math.min(100, Number(e.target.value) || 0));
-  e.target.value = v;
-  enviarWs({ type: 'pwm', value: v });
-};
-$('btnStop-m').onclick = () => { $('op-m').value = 0; enviarWs({ type: 'pwm', value: 0 }); };
-$('ts-m').onchange = (e) => {
-  const seg = Math.max(0.1, Number(e.target.value) || 1);
-  enviarWs({ type: 'rate', ms: Math.round(seg * 1000) });
-};
+// Al confirmar OP manual (Enter/blur), se envía al hardware
+opM.el.addEventListener('change', () => {
+  if (!modoM.esAuto()) enviarWs({ type: 'pwm', value: opM.get() });
+});
+$('btnStop-m').onclick = () => { opM.set(0); enviarWs({ type: 'pwm', value: 0 }); };
+// Al confirmar Ts (Enter/blur), se envía el nuevo periodo de muestreo
+tsM.el.addEventListener('change', () => {
+  enviarWs({ type: 'rate', ms: Math.round(tsM.get() * 1000) });
+});
 $('archivar-m').onclick = () => {
   archivandoM = !archivandoM;
   $('archivar-m').textContent = archivandoM ? 'Archivando…' : 'OFF';
@@ -291,11 +250,8 @@ let simTimer = null, simCorriendo = false;
 
 async function aplicarParametrosSim() {
   const body = {
-    k: Number($('kp-s').value) || 1,
-    tau: Number($('tau-s').value) || 1,
-    theta: Number($('theta-s').value) || 0,
-    Ts: Number($('ts-s').value) || 1,
-    inicial: Number($('inicial-s').value) || 0,
+    k: kpS.get(), tau: tauS.get(), theta: thetaS.get(),
+    Ts: tsS.get(), inicial: inicialS.get(),
   };
   try {
     const r = await fetch(`${SIM_URL}/reset`, {
@@ -314,32 +270,26 @@ async function aplicarParametrosSim() {
 
 async function pasoSim() {
   const auto = modoS.esAuto();
-  let op = Number($('op-s').value) || 0;
-
+  let op = opS.get();
   try {
     const r = await fetch(`${SIM_URL}/step`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op }),
     });
     const d = await r.json();
-    const pv = d.pv;                       // el backend ya arranca en "inicial"; no sumar de nuevo
+    const pv = d.pv;
     modoS.trackReferencia(pv);
-
-    const sp = Number($('referencia-s').value) || 0;
+    const sp = referenciaS.get();
     const err = sp - pv;
-
     if (auto && pidSimulacion.activo) {
       op = pidSimulacion.calcular(err);
-      $('op-s').value = op.toFixed(2);
+      opS.set(Number(op.toFixed(2)));
     }
-
     $('pv-s').textContent = pv.toFixed(2);
     $('error-s').textContent = err.toFixed(2);
-
     [histPVs, histSPs, histErrs, histOPs].forEach((h) => { if (h.length > MAX_PLOT) h.shift(); });
     histPVs.push(pv); histSPs.push(sp); histErrs.push(err); histOPs.push(op);
-    dibujarSerie($('chartPV-s'), histSPs, histPVs, Math.max(10, Math.max(...histPVs, ...histSPs) * 1.2), 'SP', 'PV');
-    dibujarSerie($('chartErr-s'), histErrs, histOPs, 100, 'Error', 'OP');
-
+    dibujarSerie($('chartPV-s'), histSPs, COLORS.sp, histPVs, COLORS.pv, Math.max(10, Math.max(...histPVs, ...histSPs) * 1.2));
+    dibujarSerie($('chartErr-s'), histErrs, COLORS.err, histOPs, COLORS.op, 100);
     if (archivandoS) {
       registroS.push({ t: Date.now() - tInicioS, pv: pv.toFixed(2), sp, err: err.toFixed(2), op });
       $('contador-s').textContent = registroS.length;
@@ -359,13 +309,13 @@ $('btnRun-s').onclick = async () => {
     return;
   }
   await aplicarParametrosSim();
-  const Ts = Math.max(0.05, Number($('ts-s').value) || 1);
+  const Ts = Math.max(0.05, tsS.get());
   simTimer = setInterval(pasoSim, Ts * 1000);
   simCorriendo = true;
   $('btnRun-s').textContent = 'Detener simulación';
 };
 
-$('btnStop-s').onclick = () => { $('op-s').value = 0; };
+$('btnStop-s').onclick = () => { opS.set(0); };
 
 $('archivar-s').onclick = () => {
   archivandoS = !archivandoS;
