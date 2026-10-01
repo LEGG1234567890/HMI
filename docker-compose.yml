@@ -14,7 +14,7 @@ services:
     volumes:
       - /dev:/dev
     device_cgroup_rules:
-      - "c 188:* rmw"
+      - "c 188:* rmw"   # ajusta este número al que viste arriba
       - "c 166:* rmw"
     restart: unless-stopped
 

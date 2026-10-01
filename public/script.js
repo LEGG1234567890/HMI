@@ -88,26 +88,49 @@ document.querySelectorAll('.tab-btn').forEach((btn) => {
     $(`tab-${btn.dataset.tab}`).classList.add('active');
   };
 });
+// Calcula [min, max] a partir de una o más series, con 10% de margen sobre el rango real.
+// Ej: si los datos van de 0 a 10, el rango graficado va de -1 a 11.
+function rangoConMargen(...series) {
+  const todos = series.flat().filter((v) => Number.isFinite(v));
+  if (todos.length === 0) return { min: 0, max: 1 };
+  let min = Math.min(...todos);
+  let max = Math.max(...todos);
+  if (min === max) {
+    // Serie plana (todos los valores iguales): evita división por cero,
+    // crea un rango artificial alrededor del valor.
+    const base = Math.abs(min) || 1;
+    return { min: min - base * 0.1, max: max + base * 0.1 };
+  }
+  const rango = max - min;
+  const margen = rango * 0.1;
+  return { min: min - margen, max: max + margen };
+}
 // ==================== GRAFICADO (la leyenda vive en el HTML, no aquí) ====================
 const MAX_PLOT = 100;
-function dibujarSerie(canvas, s1, color1, s2, color2, max) {
+function dibujarSerie(canvas, s1, color1, s2, color2, min, max) {
   const ctx = canvas.getContext('2d');
   const w = canvas.width, h = canvas.height;
   ctx.clearRect(0, 0, w, h);
+
   ctx.strokeStyle = '#26303b';
   for (let i = 0; i <= 4; i++) {
     const y = (i / 4) * h;
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
   }
+
+  const rango = max - min;
+  const escalarY = (v) => h - ((v - min) / rango) * h;
+
   const linea = (serie, color) => {
     ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath();
     serie.forEach((v, i) => {
       const x = (i / (MAX_PLOT - 1)) * w;
-      const y = h - (v / max) * h;
+      const y = escalarY(v);
       i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
     });
     ctx.stroke();
   };
+
   linea(s1, color1);
   linea(s2, color2);
 }
@@ -211,8 +234,9 @@ ws.onmessage = (e) => {
     }
     [histPVm, histSPm, histErrm, histOPm].forEach((h) => { if (h.length > MAX_PLOT) h.shift(); });
     histPVm.push(pv); histSPm.push(sp); histErrm.push(err); histOPm.push(op);
-    dibujarSerie($('chartPV-m'), histSPm, COLORS.sp, histPVm, COLORS.pv, 340);
-    dibujarSerie($('chartErr-m'), histErrm, COLORS.err, histOPm, COLORS.op, 100);
+    const rangoM = rangoConMargen(histSPm, histPVm);
+    dibujarSerie($('chartPV-m'), histSPm, COLORS.sp, histPVm, COLORS.pv, rangoM.min, rangoM.max);
+    dibujarSerie($('chartErr-m'), histErrm, COLORS.err, histOPm, COLORS.op, 0, 100);
     if (archivandoM) {
       registroM.push({ t: msg.t - tInicioM, raw: msg.raw, pv: pv.toFixed(2), sp, err: err.toFixed(2), op });
       $('contador-m').textContent = registroM.length;
@@ -288,8 +312,9 @@ async function pasoSim() {
     $('error-s').textContent = err.toFixed(2);
     [histPVs, histSPs, histErrs, histOPs].forEach((h) => { if (h.length > MAX_PLOT) h.shift(); });
     histPVs.push(pv); histSPs.push(sp); histErrs.push(err); histOPs.push(op);
-    dibujarSerie($('chartPV-s'), histSPs, COLORS.sp, histPVs, COLORS.pv, Math.max(10, Math.max(...histPVs, ...histSPs) * 1.2));
-    dibujarSerie($('chartErr-s'), histErrs, COLORS.err, histOPs, COLORS.op, 100);
+    const rangoS = rangoConMargen(histSPs, histPVs);
+    dibujarSerie($('chartPV-s'), histSPs, COLORS.sp, histPVs, COLORS.pv, rangoS.min, rangoS.max);
+    dibujarSerie($('chartErr-s'), histErrs, COLORS.err, histOPs, COLORS.op, 0, 100);
     if (archivandoS) {
       registroS.push({ t: Date.now() - tInicioS, pv: pv.toFixed(2), sp, err: err.toFixed(2), op });
       $('contador-s').textContent = registroS.length;
